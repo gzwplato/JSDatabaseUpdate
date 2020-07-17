@@ -34,8 +34,8 @@ implementation
 {$R *.dfm}
 
 uses
-  JS.DatabaseManager.Interfaces,
-  JS.DatabaseManager;
+  JS.DatabaseUpdate.Interfaces,
+  JS.DatabaseUpdate;
 
 procedure TPrincipalView.Button1Click(Sender: TObject);
 Var
@@ -45,19 +45,15 @@ Var
 begin
   lDB := TJSDataBase.New;
 
-  // Tabela Grupo
-  lTbl := TJSTable.New.Description('ateste');
-  lTbl.Fields.Add( TJSTableField.New.FieldName('codateste') .FieldType(eftInteger)  .Size(0)  .NotNull(true) .PrimaryKey(true) );
-  lTbl.Fields.Add( TJSTableField.New.FieldName('ateste')    .FieldType(eftString)   .Size(60) .NotNull(true)  );
-  lTbl.Fields.Add( TJSTableField.New.FieldName('alongobs')  .FieldType(eftLongBlob) .Size(0)  .NotNull(false) );
-  lTbl.Fields.Add( TJSTableField.New.FieldName('datacad')   .FieldType(eftDate)     .Size(0)  .NotNull(false) );
-  lTbl.Fields.Add( TJSTableField.New.FieldName('datamod')   .FieldType(eftDate)     .Size(0)  .NotNull(false) );
-  lTbl.Fields.Add( TJSTableField.New.FieldName('horacad')   .FieldType(eftTime)     .Size(0)  .NotNull(false) );
-  lTbl.Fields.Add( TJSTableField.New.FieldName('horamod')   .FieldType(eftTime)     .Size(0)  .NotNull(false) );
-  lTbl.Fields.Add( TJSTableField.New.FieldName('opercad')   .FieldType(eftString)   .Size(60) .NotNull(false) );
-  lTbl.Fields.Add( TJSTableField.New.FieldName('opermod')   .FieldType(eftString)   .Size(60) .NotNull(false) );
-  lTbl.Fields.Add( TJSTableField.New.FieldName('estacao')   .FieldType(eftInteger)  .Size(0)  .NotNull(false) );
-  lTbl.Fields.Add( TJSTableField.New.FieldName('ativo')     .FieldType(eftInteger)  .Size(0)  .NotNull(false) );
+  // Tabela teste
+  lTbl := TJSTable.New.Description('teste');
+  lTbl.Fields.Add( TJSTableField.New.FieldName('codteste') .FieldType(eftInteger)  .Size(0)  .NotNull(true) .PrimaryKey(true) );
+  lTbl.Fields.Add( TJSTableField.New.FieldName('teste')    .FieldType(eftString)   .Size(60) .NotNull(true)  );
+  lTbl.Fields.Add( TJSTableField.New.FieldName('obs')      .FieldType(eftLongBlob) .Size(0)  .NotNull(false) );
+  lTbl.Fields.Add( TJSTableField.New.FieldName('data')     .FieldType(eftDate)     .Size(0)  .NotNull(false) );
+  lTbl.Fields.Add( TJSTableField.New.FieldName('hora')     .FieldType(eftTime)     .Size(0)  .NotNull(false) );
+  lTbl.Fields.Add( TJSTableField.New.FieldName('oper')     .FieldType(eftString)   .Size(60) .NotNull(false) );
+  lTbl.Fields.Add( TJSTableField.New.FieldName('ativo')    .FieldType(eftInteger)  .Size(0)  .NotNull(false) );
   lDB.Tables.Add(lTbl);
 
   // Atualizar a Base de Dados

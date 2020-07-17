@@ -3,8 +3,8 @@ program updDB;
 uses
   Vcl.Forms,
   Principal.View in 'Principal.View.pas' {PrincipalView},
-  JS.DatabaseManager.Interfaces in '..\..\src\JS.DatabaseManager.Interfaces.pas',
-  JS.DatabaseManager in '..\..\src\JS.DatabaseManager.pas';
+  JS.DatabaseUpdate.Interfaces in '..\..\src\JS.DatabaseUpdate.Interfaces.pas',
+  JS.DatabaseUpdate in '..\..\src\JS.DatabaseUpdate.pas';
 
 {$R *.res}
 
