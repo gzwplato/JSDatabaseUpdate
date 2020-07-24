@@ -104,7 +104,9 @@ end;
 
 destructor TJSTable.Destroy;
 begin
-  //
+  if Assigned(FFields) then
+    FreeAndNil(FFields);
+
   inherited;
 end;
 
@@ -281,8 +283,14 @@ end;
 
 destructor TJSDataBase.Destroy;
 begin
-  FreeAndNil(FQry1);
-  FreeAndNil(FQry2);
+  if Assigned(FTables) then
+    FreeAndNil(FTables);
+
+  if Assigned(FQry1) then
+    FreeAndNil(FQry1);
+
+  if Assigned(FQry2) then
+    FreeAndNil(FQry2);
 
   inherited;
 end;
