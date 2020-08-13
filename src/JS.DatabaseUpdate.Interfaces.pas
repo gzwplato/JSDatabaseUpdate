@@ -12,6 +12,7 @@ type
   IJSDataBase = Interface;
   IJSTable = Interface;
   IJSTableField = Interface;
+  IJSTableIndex = Interface;
 
   IJSDataBase = Interface
     ['{2610096C-452F-4D0F-9DCC-1AFF52B66076}']
@@ -27,6 +28,7 @@ type
     function Description(AValue: String): IJSTable; overload;
 
     function Fields: TList<IJSTableField>;
+    function Indexs: TList<IJSTableIndex>;
   End;
 
   IJSTableField = Interface
@@ -34,6 +36,9 @@ type
 
     function FieldName: String; overload;
     function FieldName(AValue: String): IJSTableField; overload;
+
+    function DisplayName: String; overload;
+    function DisplayName(AValue: String): IJSTableField; overload;
 
     function FieldType: TEnumFieldType; overload;
     function FieldType(AValue: TEnumFieldType): IJSTableField; overload;
@@ -52,6 +57,16 @@ type
 
     function PrimaryKey: Boolean; overload;
     function PrimaryKey(AValue: Boolean): IJSTableField; overload;
+  End;
+
+  IJSTableIndex = Interface
+    ['{693D068A-F15F-48E0-B871-88D4B77ACADE}']
+
+    function IndexName: String; overload;
+    function IndexName(AValue: String): IJSTableIndex; overload;
+
+    function Fields: String; overload;
+    function Fields(AValue: String): IJSTableIndex; overload;
   End;
 
 implementation

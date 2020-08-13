@@ -21,8 +21,9 @@ type
     FQry2: TFDQuery;
 
     function TableExists(ATableName: String): Boolean;
-    function CreateTable(ATableField: String; AFields: TList<IJSTableField>): IJSDataBase;
-    function CheckCreateFields(ATableField: String; AFields: TList<IJSTableField>): IJSDataBase;
+    function CreateTable(ATableName: String; AFields: TList<IJSTableField>): IJSDataBase;
+    function CheckCreateFields(ATableName: String; AFields: TList<IJSTableField>): IJSDataBase;
+    function CheckCreateIndexs(ATableName: String; AIndexs: TList<IJSTableIndex>): IJSDataBase;
 
     function FieldTypeStr(AFieldType: TEnumFieldType): String;
     function SubTypeStr(ASubType: TEnumSubType): String;
@@ -43,6 +44,7 @@ type
   private
     FDescription: String;
     FFields: TList<IJSTableField>;
+    FIndexs: TList<IJSTableIndex>;
   public
     constructor Create;
     destructor Destroy; override;
@@ -52,17 +54,19 @@ type
     function Description(AValue: String): IJSTable; overload;
 
     function Fields: TList<IJSTableField>;
+    function Indexs: TList<IJSTableIndex>;
   end;
 
   TJSTableField = class(TInterfacedObject, IJSTableField)
   private
-    FFieldName  :String;
-    FFieldType  :TEnumFieldType;
-    FSize       :Integer;
-    FScale      :Integer;
-    FSubType    :TEnumSubType;
-    FNotNull    :Boolean;
-    FPrimaryKey :Boolean;
+    FFieldName   :String;
+    FDisplayName :String;
+    FFieldType   :TEnumFieldType;
+    FSize        :Integer;
+    FScale       :Integer;
+    FSubType     :TEnumSubType;
+    FNotNull     :Boolean;
+    FPrimaryKey  :Boolean;
   public
     constructor Create;
     destructor Destroy; override;
@@ -70,6 +74,9 @@ type
 
     function FieldName: String; overload;
     function FieldName(AValue: String): IJSTableField; overload;
+
+    function DisplayName: String; overload;
+    function DisplayName(AValue: String): IJSTableField; overload;
 
     function FieldType: TEnumFieldType; overload;
     function FieldType(AValue: TEnumFieldType): IJSTableField; overload;
@@ -90,16 +97,35 @@ type
     function PrimaryKey(AValue: Boolean): IJSTableField; overload;
   end;
 
+  TJSTableIndex = class(TInterfacedObject, IJSTableIndex)
+  private
+    FIndexName  :String;
+    FFields     :String;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    class function New: IJSTableIndex;
+
+    function IndexName: String; overload;
+    function IndexName(AValue: String): IJSTableIndex; overload;
+
+    function Fields: String; overload;
+    function Fields(AValue: String): IJSTableIndex; overload;
+  end;
+
 implementation
 
 uses
-  System.SysUtils, Vcl.Forms, Vcl.Dialogs;
+  System.SysUtils,
+  Vcl.Forms,
+  Vcl.Dialogs;
 
 { TJSTable }
 
 constructor TJSTable.Create;
 begin
   FFields := TList<IJSTableField>.Create;
+  FIndexs := TList<IJSTableIndex>.Create;
 end;
 
 destructor TJSTable.Destroy;
@@ -107,12 +133,20 @@ begin
   if Assigned(FFields) then
     FreeAndNil(FFields);
 
+  if Assigned(FIndexs) then
+    FreeAndNil(FIndexs);
+
   inherited;
 end;
 
 function TJSTable.Fields: TList<IJSTableField>;
 begin
   Result := FFields;
+end;
+
+function TJSTable.Indexs: TList<IJSTableIndex>;
+begin
+  Result := FIndexs;
 end;
 
 class function TJSTable.New: IJSTable;
@@ -142,6 +176,17 @@ destructor TJSTableField.Destroy;
 begin
   //
   inherited;
+end;
+
+function TJSTableField.DisplayName(AValue: String): IJSTableField;
+begin
+  Result := Self;
+  FDisplayName := AValue;
+end;
+
+function TJSTableField.DisplayName: String;
+begin
+  Result := FDisplayName;
 end;
 
 function TJSTableField.FieldName: String;
@@ -228,6 +273,143 @@ end;
 
 { TJSDataBase }
 
+function TJSDataBase.CheckCreateIndexs(ATableName: String; AIndexs: TList<IJSTableIndex>): IJSDataBase;
+var
+  lI: Integer;
+  lAchou: Boolean;
+begin
+  Result := Self;
+
+  // Firebird
+  if (AnsiUpperCase(FFDConn.DriverName) = 'FB') then
+  Begin
+    FQry1.SQL.Clear;
+    FQry1.SQL.Add(
+      ' select                                  ' +
+      '   rdb$index_name                        ' +
+      ' from                                    ' +
+      '   rdb$indices                           ' +
+      ' where                                   ' +
+      '   lower(rdb$relation_name) = :atablename'
+    );
+    FQry1.Params[0].AsString := AnsiLowerCase(ATableName);
+  End;
+
+  // MySQL
+  if (AnsiUpperCase(FFDConn.DriverName) = 'MYSQL') then
+  Begin
+    FQry1.SQL.Clear;
+    FQry1.SQL.Add(
+      ' select                                ' +
+      '   index_name                          ' +
+      ' from                                  ' +
+      '   information_schema.statistics       ' +
+      ' where                                 ' +
+      '   lower(table_schema) = :table_schema ' +
+      ' and                                   ' +
+      '   lower(table_name) = :table_name     '
+    );
+    FQry1.Params[0].AsString := FFDConn.Params.Database;
+    FQry1.Params[1].AsString := AnsiLowerCase(ATableName);
+  End;
+
+  Try
+    FQry1.Open;
+  Except
+    on E: Exception do
+      ShowMessage(E.ClassName + ' ' + E.Message + ' ' + Self.UnitName + 'CheckCreateIndexs_OPEN');
+  End;
+
+  for lI := 0 to Pred(AIndexs.Count) do
+  Begin
+    FQry1.First;
+    while not FQry1.Eof do
+    Begin
+      lAchou := False;
+      if (AnsiLowerCase(FQry1.Fields[0].AsString.Trim) = AnsiLowerCase(AIndexs.Items[lI].IndexName.Trim)) then
+      Begin
+        lAchou := True;
+        Break;
+      End;
+
+      FQry1.Next;
+      Application.ProcessMessages;
+    End;
+
+    // Se não existir, Cria!
+    if not lAchou then
+    Begin
+      FQry2.Close;
+      FQry2.SQL.Clear;
+
+      // Firebird
+      if (AnsiUpperCase(FFDConn.DriverName) = 'FB') then
+      Begin
+        FQry2.SQL.Add(
+          ' create index ' + AnsiLowerCase(AIndexs.Items[lI].IndexName.Trim) +
+          ' on '           + AnsiLowerCase(ATableName) +
+          ' ('             + AIndexs.Items[lI].Fields + ') '
+        );
+      End;
+
+      // MySQL
+      if (AnsiUpperCase(FFDConn.DriverName) = 'MYSQL') then
+      Begin
+        FQry2.SQL.Add(
+          ' alter table ' + AnsiLowerCase(ATableName) +
+          ' add index '   + AnsiLowerCase(AIndexs.Items[lI].IndexName.Trim) +
+          ' ('            + AIndexs.Items[lI].Fields + ' asc) visible'
+        );
+      End;
+
+      Try
+        FQry2.ExecSQL;
+      Except
+        on E: Exception do
+          ShowMessage(E.ClassName + ' ' + E.Message + ' ' + Self.UnitName + 'CheckCreateIndexs_EXECSQL');
+      End;
+    End;
+  End;
+end;
+
+function TJSDataBase.CheckCreateFields(ATableName: String; AFields: TList<IJSTableField>): IJSDataBase;
+var
+  lI: Integer;
+  lFieldType, lSubType, lSize, lNotNull: String;
+begin
+  Try
+    FQry1.Open('select * from ' + ATableName + ' where ' + AFields.Items[0].FieldName + ' = ' + QuotedStr('0'));
+  Except
+    on E: Exception do
+      ShowMessage(E.ClassName + ' ' + E.Message + ' ' + Self.UnitName + 'CheckCreateFields_OPEN');
+  End;
+
+  for lI := 0 to Pred(AFields.Count) do
+  Begin
+    // Se não existir, Cria!
+    if (FQry1.FindField(AFields.Items[lI].FieldName) = nil) then
+    begin
+      lFieldType := FieldTypeStr(AFields.Items[lI].FieldType);
+      lSubType   := SubTypeStr(AFields.Items[lI].SubType);
+      lSize      := SizeStr(AFields.Items[lI].Size, AFields.Items[lI].SubType);
+      lNotNull   := NotNullStr(AFields.Items[lI].NotNull);
+
+      FQry2.SQL.Clear;
+      FQry2.SQL.Add(
+        ' alter table ' + ATableName +
+        ' add ' + AFields.Items[lI].FieldName + lFieldType + lSubType + lSize + lNotNull
+      );
+
+      Try
+        FQry2.ExecSQL;
+      Except
+        on E: Exception do
+          ShowMessage(E.ClassName + ' ' + E.Message + ' ' + Self.UnitName + 'CheckCreateFields');
+      End;
+    end;
+  End;
+end;
+
 constructor TJSDataBase.Create;
 begin
   FTables := TList<IJSTable>.Create;
@@ -235,7 +417,7 @@ begin
   FQry2 := TFDQuery.Create(nil);
 end;
 
-function TJSDataBase.CreateTable(ATableField: String; AFields: TList<IJSTableField>): IJSDataBase;
+function TJSDataBase.CreateTable(ATableName: String; AFields: TList<IJSTableField>): IJSDataBase;
 var
   lFieldType0, lFieldType1: String;
   lSize0, lSize1: String;
@@ -254,7 +436,7 @@ begin
   // Criar JSTable
   FQry1.SQL.Clear;
   FQry1.SQL.Add(
-    ' create table ' + ATableField + ' ( ' +
+    ' create table ' + ATableName + ' ( ' +
       AFields.Items[0].FieldName + lFieldType0 + lSize0 + lNotNull0 + ', ' +
       AFields.Items[1].FieldName + lFieldType1 + lSize1 + lNotNull1 + '  ' +
     ' ) '
@@ -269,8 +451,8 @@ begin
   // Criar Chave Primária
   FQry1.SQL.Clear;
   FQry1.SQL.Add(
-    ' alter table ' + ATableField +
-    ' add constraint pk_' + ATableField +
+    ' alter table ' + ATableName +
+    ' add constraint pk_' + ATableName +
     ' primary key (' + PrimaryKeyStr(AFields) + ')'
   );
   try
@@ -425,6 +607,21 @@ begin
   FQry1.Connection := FFDConn;
   FQry2.Connection := FFDConn;
 
+  // Verificar conexão antes de prosseguir
+  if not FFDConn.Connected Then
+  Begin
+    Try
+      FFDConn.Connected := True;
+    Except
+      on E: Exception do
+      Begin
+        ShowMessage(E.ClassName + ' ' + E.Message + ' ' + Self.UnitName + 'TableExists');
+        Abort;
+      End;
+    End;
+  End;
+
+
   // Percorrer JSTables (Criar,Atualizar JSTables,Campos)
   for lI := 0 to Pred(FTables.Count) do
   Begin
@@ -432,45 +629,48 @@ begin
       CreateTable(FTables.Items[lI].Description, FTables.Items[lI].Fields);
 
     CheckCreateFields(FTables.Items[lI].Description, FTables.Items[lI].Fields);
+    CheckCreateIndexs(FTables.Items[lI].Description, FTables.Items[lI].Indexs);
   End;
 end;
 
-function TJSDataBase.CheckCreateFields(ATableField: String; AFields: TList<IJSTableField>): IJSDataBase;
-var
-  lI: Integer;
-  lFieldType, lSubType, lSize, lNotNull: String;
+{ TJSTableIndex }
+
+constructor TJSTableIndex.Create;
 begin
-  Try
-    FQry1.Open('select * from ' + ATableField + ' where ' + AFields.Items[0].FieldName + ' = ' + QuotedStr('0'));
-  Except
-    on E: Exception do
-      ShowMessage(E.ClassName + ' ' + E.Message + ' ' + Self.UnitName + 'CheckCreateFields_OPEN');
-  End;
+//
+end;
 
-  for lI := 0 to Pred(AFields.Count) do
-  Begin
-    // Se não existir, Cria!
-    if (FQry1.FindField(AFields.Items[lI].FieldName) = nil) then
-    begin
-      lFieldType := FieldTypeStr(AFields.Items[lI].FieldType);
-      lSubType   := SubTypeStr(AFields.Items[lI].SubType);
-      lSize      := SizeStr(AFields.Items[lI].Size, AFields.Items[lI].SubType);
-      lNotNull   := NotNullStr(AFields.Items[lI].NotNull);
+destructor TJSTableIndex.Destroy;
+begin
+  //
+  inherited;
+end;
 
-      FQry2.SQL.Clear;
-      FQry2.SQL.Add(
-        ' alter table ' + ATableField +
-        ' add ' + AFields.Items[lI].FieldName + lFieldType + lSubType + lSize + lNotNull
-      );
+function TJSTableIndex.Fields: String;
+begin
+  Result := FFields;
+end;
 
-      Try
-        FQry2.ExecSQL;
-      Except
-        on E: Exception do
-          ShowMessage(E.ClassName + ' ' + E.Message + ' ' + Self.UnitName + 'CheckCreateFields');
-      End;
-    end;
-  End;
+function TJSTableIndex.Fields(AValue: String): IJSTableIndex;
+begin
+  Result := Self;
+  FFields := aValue;
+end;
+
+function TJSTableIndex.IndexName: String;
+begin
+  Result := FIndexName;
+end;
+
+function TJSTableIndex.IndexName(AValue: String): IJSTableIndex;
+begin
+  Result := Self;
+  FIndexName := aValue;
+end;
+
+class function TJSTableIndex.New: IJSTableIndex;
+begin
+  Result := Self.Create;
 end;
 
 end.
