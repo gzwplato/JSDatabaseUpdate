@@ -27,7 +27,7 @@ type
 
     function FieldTypeStr(AFieldType: TEnumFieldType): String;
     function SubTypeStr(ASubType: TEnumSubType): String;
-    function SizeStr(ASize: Integer; ASubType: TEnumSubType): String;
+    function SizeStr(ASize, AScale: Integer; ASubType: TEnumSubType): String;
     function NotNullStr(ANotNull: Boolean): String;
     function PrimaryKeyStr(AFields: TList<IJSTableField>): String;
   public
@@ -358,7 +358,7 @@ begin
         FQry2.SQL.Add(
           ' alter table ' + AnsiLowerCase(ATableName) +
           ' add index '   + AnsiLowerCase(AIndexs.Items[lI].IndexName.Trim) +
-          ' ('            + AIndexs.Items[lI].Fields + ' asc) visible'
+          ' ('            + AIndexs.Items[lI].Fields + ' asc)'
         );
       End;
 
@@ -391,7 +391,7 @@ begin
     begin
       lFieldType := FieldTypeStr(AFields.Items[lI].FieldType);
       lSubType   := SubTypeStr(AFields.Items[lI].SubType);
-      lSize      := SizeStr(AFields.Items[lI].Size, AFields.Items[lI].SubType);
+      lSize      := SizeStr(AFields.Items[lI].Size, AFields.Items[lI].Scale, AFields.Items[lI].SubType);
       lNotNull   := NotNullStr(AFields.Items[lI].NotNull);
 
       FQry2.SQL.Clear;
@@ -425,12 +425,12 @@ var
 begin
   // Campo 1
   lFieldType0 := FieldTypeStr(AFields.Items[0].FieldType);
-  lSize0      := SizeStr(AFields.Items[0].Size, AFields.Items[0].SubType);
+  lSize0      := SizeStr(AFields.Items[0].Size, AFields.Items[0].Scale, AFields.Items[0].SubType);
   lNotNull0   := NotNullStr(AFields.Items[0].NotNull);
 
   // Campo 2
   lFieldType1 := FieldTypeStr(AFields.Items[1].FieldType);
-  lSize1      := SizeStr(AFields.Items[1].Size, AFields.Items[1].SubType);
+  lSize1      := SizeStr(AFields.Items[1].Size, AFields.Items[1].Scale, AFields.Items[1].SubType);
   lNotNull1   := NotNullStr(AFields.Items[1].NotNull);
 
   // Criar JSTable
@@ -523,14 +523,19 @@ begin
         Result := Result + ', ' + AFields.Items[lI].FieldName;
 end;
 
-function TJSDataBase.SizeStr(ASize: Integer; ASubType: TEnumSubType): String;
+function TJSDataBase.SizeStr(ASize, AScale: Integer; ASubType: TEnumSubType): String;
 begin
   Result := '';
 
   case ASubType of
     estNone: Begin
       if (ASize > 0) then
+      Begin
         Result := ' (' + ASize.ToString + ') ';
+
+        if (AScale > 0) then
+          Result := ' (' + ASize.ToString + ', ' + AScale.ToString + ') ';
+      End;
     End;
 
     estBinary, estText: Begin
